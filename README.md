@@ -48,15 +48,19 @@ cells_number = Worksheets(sep_base_dados).Range("x:x").Cells.SpecialCells(xlCell
 
 For i = 2 To cells_number
   
-  'For each cell you want to fill, change 
-  Worksheets(printing_sheet).Cells(7, 2) = "João Manuel de Barros Figueiredo Cruz, Autoridade de Saúde de Braga do Aces Cávado 1 – Braga, nos termos do artigo 5.º do Decreto-Lei n.º 82/2009, de 2 de abril, alterado pelo Decreto-Lei n.º 135/2013, de 4 de outubro, determino o isolamento profilático de " & Worksheets(sep_base_dados).Cells(i, coluna_nome) & ", portador do BI / CC n.º " & Worksheets(sep_base_dados).Cells(i, coluna_cc) & ", com validade até " & Worksheets(sep_base_dados).Cells(i, coluna_validade_cc) & ", com o número de identificação de segurança social " & Worksheets(sep_base_dados).Cells(i, coluna_niss) & ", pelo período de " & Worksheets(sep_base_dados).Cells(i, coluna_inicio_isolamento) & " a " & Worksheets(sep_base_dados).Cells(i, coluna_fim_isolamento) & ", por motivo de perigo de contágio e como medida de contenção de COVID-19.----------------------------------"
-        Worksheets(sep_folha_impressao).ExportAsFixedFormat Type:=xlTypePDF, Filename:= _
-        destino_pdf & Worksheets(sep_base_dados).Cells(i, 24) & "@@" & Worksheets(sep_base_dados).Cells(i, 20) & "@@" & Worksheets(sep_base_dados).Cells(i, 13) & ".pdf", Quality:= _
+  'For each cell you want to fill, change Cells(x, y), where x is the row of the cell and y its column,
+  ' and add the text you want on that cell, and change Worksheets(sep_base_dados).Cells(i, example_1), where example_1 os the column where the data is
+  Worksheets(printing_sheet).Cells(x, y) = "This is a test" & Worksheets(database_sheet).Cells(i, example_1) & "Ending Test"
+  
+  'Then, a pdf will be printed, to path pdf. You can name it with text and the cells at columns you chose.
+  Worksheets(printing_sheet).ExportAsFixedFormat Type:=xlTypePDF, Filename:= _
+  path_pdf & Worksheets(sep_base_dadosdatabase_sheet).Cells(i, example_2) & "@@" & Worksheets(sep_base_dados).Cells(i, example_3) & ".pdf", Quality:= _
         xlQualityStandard, IncludeDocProperties:=True, IgnorePrintAreas:=False, _
         From:=1, To:=1, OpenAfterPublish:=False
     
 Next i
 
-Debug.Print ("Fim")
+'At the end, you will see a message End
+Debug.Print ("End")
 
 End Sub
