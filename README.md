@@ -19,7 +19,9 @@ Adjust the constants: sheet names, output folder, column numbers.
 Map the cells on design_page that you want to populate.
 Run PrintDatabaseRowsToPDF.
 
-**The code (drop-in)**Option Explicit
+**The code (drop-in)**
+
+Option Explicit
 
 ' ====== USER SETTINGS ======
 ' Sheet names
