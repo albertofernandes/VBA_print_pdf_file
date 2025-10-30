@@ -1,66 +1,137 @@
-# VBA_print_pdf_file
+# VBA Print to PDF — from a database sheet to a formatted design sheet
+**What this does**
+Takes rows from a database sheet, writes selected values into a design_page sheet, and exports one PDF per row using a safe filename pattern.
 
-Create a excel file. Insert a table and name the Sheet -> "database"
-Create another Sheet, and design the page you want to print. Name the sheet -> "design_page"
+**Why you might use it**
+You have a table of records and a formatted page you want to print per record.
+You want deterministic file names (e.g., ID@@Name.pdf).
 
-Then, you will have 2 types of variables:
-1) Variables which you will use to write on your "design_page" and give your printed file a filename
-  For each variable, create a Dim [write_variable] As Long
-2) File location variables
-  For your output folder location and sheet name
-  Name the variable path_pdf with your output file location
-  Name the variable printing_sheet with your "design_page" sheet name
-  Name the variable database_sheet with your "database" sheet name
-    
+**Requirements**
+1) Excel for Windows (VBA). Tested on Excel 2019.
+2) A workbook with two sheets (download from this project folder a working example):
+  2.1. database — your data table lives here. First row = headers.
+  2.2. design_page — the single-page layout you want to export. Set its print area.
+  If you rename the sheets, update the constants in the code.
 
-Sub Print_PDF()
+**Quick start**
+Open the VBA editor (Alt + F11), insert a Module, and paste the code below.
+Adjust the constants: sheet names, output folder, column numbers.
+Map the cells on design_page that you want to populate.
+Run PrintDatabaseRowsToPDF.
 
-'Create variables which you will use to write on your "design_page" and give your printed file a filename
-Dim example_1 As Long
-Dim example_2 As Long
-Dim example_3 As Long
+**The code (drop-in)**Option Explicit
 
-'Create variables for output folder location, and sheet names
-Dim path_pdf As String
-Dim database_sheet As String
-Dim printing_sheet As String
+' ====== USER SETTINGS ======
+' Sheet names
+Private Const DATABASE_SHEET As String = "database"
+Private Const DESIGN_SHEET   As String = "design_page"
 
-Dim cells_number As String
+' Output folder (ensure you have write permission)
+Private Const OUTPUT_FOLDER  As String = "C:\Users\user\Documents\exports"  ' no trailing slash needed
 
-'Change de column number for each variable you will use from your database
-example_1 = 5 'column 5
-example_2 = 22 'column 22
-example_3 = 23 'column 23
+' Column mappings in the database sheet (numbers, 1-based)
+Private Const KEY_COL        As Long = 1    ' column used to detect last used row (e.g., an ID or Name)
+' Add here your variables and paste them with the design_sheet layout down in the loop
+Private Const COL_EXAMPLE1   As Long = 1    ' example: column 1
+Private Const COL_EXAMPLE2   As Long = 2   ' example: column 2
+Private Const COL_EXAMPLE3   As Long = 3   ' example: column 3
 
-'Database sheet name
-database_sheet = "Database Sheet Name"
+' ====== MACRO ENTRYPOINT ======
+Public Sub PrintDatabaseRowsToPDF()
+    Dim wsData As Worksheet, wsDesign As Worksheet
+    Dim lastRow As Long, i As Long
+    Dim outPath As String, fileName As String
+    Dim val1 As Variant, val2 As Variant, val3 As Variant
+    Dim prevCalc As XlCalculation
 
-'Printing Desing Sheet Name
-printing_sheet = "Printing Design Sheet name"
+    On Error GoTo CleanFail
 
-'Output path folder
-path_pdf = "C:\Users\xpto\"
+    Set wsData = ThisWorkbook.Worksheets(DATABASE_SHEET)
+    Set wsDesign = ThisWorkbook.Worksheets(DESIGN_SHEET)
 
+    ' Performance toggles
+    Application.ScreenUpdating = False
+    prevCalc = Application.Calculation
+    Application.Calculation = xlCalculationManual
 
-'Number of rows on your database, used to fix the number of pdf created, by counting number of full cells on column x. 
-'Change Range("x:x"), where x is you column
-cells_number = Worksheets(sep_base_dados).Range("x:x").Cells.SpecialCells(xlCellTypeConstants).Count
+    outPath = EnsureTrailingSlash(OUTPUT_FOLDER)
+    CreateFolderIfMissing outPath
 
-For i = 2 To cells_number
-  
-  'For each cell you want to fill, change Cells(x, y), where x is the row of the cell and y its column,
-  ' and add the text you want on that cell, and change Worksheets(sep_base_dados).Cells(i, example_1), where example_1 os the column where the data is
-  Worksheets(printing_sheet).Cells(x, y) = "This is a test" & Worksheets(database_sheet).Cells(i, example_1) & "Ending Test"
-  
-  'Then, a pdf will be printed, to path pdf. You can name it with text and the cells at columns you chose.
-  Worksheets(printing_sheet).ExportAsFixedFormat Type:=xlTypePDF, Filename:= _
-  path_pdf & Worksheets(sep_base_dadosdatabase_sheet).Cells(i, example_2) & "@@" & Worksheets(sep_base_dados).Cells(i, example_3) & ".pdf", Quality:= _
-        xlQualityStandard, IncludeDocProperties:=True, IgnorePrintAreas:=False, _
-        From:=1, To:=1, OpenAfterPublish:=False
-    
-Next i
+    ' Last data row determined by KEY_COL (must have no gaps in that column)
+    lastRow = wsData.Cells(wsData.Rows.Count, KEY_COL).End(xlUp).Row
+    If lastRow < 2 Then Err.Raise vbObjectError + 100, , "No data rows found in '" & DATABASE_SHEET & "'"
 
-'At the end, you will see a message End
-Debug.Print ("End")
+    For i = 2 To lastRow   ' assume row 1 = headers
+        ' Read values from the database sheet
+        val1 = wsData.Cells(i, COL_EXAMPLE1).Value
+        val2 = wsData.Cells(i, COL_EXAMPLE2).Value
+        val3 = wsData.Cells(i, COL_EXAMPLE3).Value
 
+        ' === Write values to the design_page (map your cells here) ===
+        ' Example mapping: put a composed sentence into B3
+        wsDesign.Range("B3").Value = "This is a test " & val1 & " Ending Test"
+        ' Add your own mappings like:
+        wsDesign.Range("B4").Value = val2
+        wsDesign.Range("B5").Value = val3
+
+        ' Build safe filename and export a single-page PDF
+        fileName = outPath & SanitizeFileName(CStr(val2) & "@@" & CStr(val3)) & ".pdf"
+
+        wsDesign.ExportAsFixedFormat _
+            Type:=xlTypePDF, _
+            fileName:=fileName, _
+            Quality:=xlQualityStandard, _
+            IncludeDocProperties:=True, _
+            IgnorePrintAreas:=False, _
+            From:=1, To:=1, OpenAfterPublish:=False
+    Next i
+
+    MsgBox "Done: " & (lastRow - 1) & " PDFs created in " & outPath, vbInformation
+
+CleanExit:
+    ' Restore Excel state
+    Application.Calculation = prevCalc
+    Application.ScreenUpdating = True
+    Exit Sub
+
+CleanFail:
+    MsgBox "Error: " & Err.Number & " — " & Err.Description, vbCritical
+    Resume CleanExit
 End Sub
+
+' ====== HELPERS ======
+Private Function EnsureTrailingSlash(ByVal p As String) As String
+    If Len(p) = 0 Then EnsureTrailingSlash = "" Else EnsureTrailingSlash = p & IIf(Right$(p, 1) = "\", "", "\")
+End Function
+
+Private Function SanitizeFileName(ByVal s As String) As String
+    Dim badChars As Variant, c As Variant
+    badChars = Array("<", ">", ":", Chr$(34), "/", "\", "|", "?", "*")
+    For Each c In badChars
+        s = Replace$(s, c, "_")
+    Next
+    ' trim and collapse whitespace
+    s = Trim$(s)
+    s = Replace$(s, vbTab, " ")
+    Do While InStr(s, "  ") > 0
+        s = Replace$(s, "  ", " ")
+    Loop
+    SanitizeFileName = s
+End Function
+
+Private Sub CreateFolderIfMissing(ByVal p As String)
+    If Len(p) = 0 Then Exit Sub
+    If Dir$(p, vbDirectory) = vbNullString Then MkDir p
+End Sub
+```
+
+**Contributing**
+Keep the macro single-purpose.
+Prefer constants for configuration.
+Document any additional mapping patterns you add in this README.
+
+**License**
+MIT. Do whatever you want; no warranty.
+
+Credits
+Original idea by @albertofernandes. Cleanup using AI.
